@@ -1,5 +1,5 @@
 mod scanner;
-use scanner::scan;
+use scanner::{scan, ScanResult};
 use std::env;
 use std::fs;
 use std::net::IpAddr;
@@ -10,11 +10,14 @@ fn main() {
 
     if args.len() < 4 {
         eprintln!(
-            "Usage: {} (-i <IP> | -f <file>) (-p <port> | -r <start-end> | -a)",
+            "Usage: {} (-i <IP> | -f <file>) (-p <port> | -r <start-end> | -a) [-m]",
             args[0]
         );
         return;
     }
+
+    // Check if --map/-m is passed
+    let map_enabled = args.contains(&"-m".to_string()) || args.contains(&"--map".to_string());
 
     let targets: Vec<IpAddr> = match args[1].as_str() {
         "-i" | "--ip" => {
@@ -66,8 +69,33 @@ fn main() {
         }
     };
 
+    let mut all_results: Vec<ScanResult> = Vec::new();
+
     for ip in targets {
-        println!("Scanning {} on ports {:?}", ip, ports);
-        scan(ip, &ports);
+        let results = scan(ip, &ports);
+        all_results.extend(results);
+    }
+
+    let json = serde_json::to_string_pretty(&all_results).unwrap();
+
+    if map_enabled {
+        match reqwest::blocking::Client::new()
+            .post("http://localhost:8000/ingest") // <-- Change this as needed
+            .json(&all_results)
+            .send()
+        {
+            Ok(response) => {
+                if response.status().is_success() {
+                    println!("Results successfully mapped to asset manager.");
+                } else {
+                    eprintln!("Mapping failed with status: {}", response.status());
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to send mapping request: {}", e);
+            }
+        }
+    } else {
+        println!("{}", json);
     }
 }
