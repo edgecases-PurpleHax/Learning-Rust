@@ -2,14 +2,16 @@ use serde::Serialize;
 use std::net::{IpAddr, TcpStream};
 use std::time::Duration;
 
+use crate::config::Config;
+
 #[derive(Serialize)]
-pub struct ScanResult {
-    pub ip: IpAddr,
-    pub port: u16,
-    pub status: String,
+struct ScanResult {
+    ip: IpAddr,
+    port: u16,
+    status: String,
 }
 
-pub fn scan(ip: IpAddr, ports: &[u16]) -> Vec<ScanResult> {
+pub fn scan(ip: IpAddr, ports: &[u16], config: Option<&Config>) {
     let timeout = Duration::from_secs(2);
     let mut results = Vec::new();
 
@@ -20,12 +22,39 @@ pub fn scan(ip: IpAddr, ports: &[u16]) -> Vec<ScanResult> {
             Err(_) => "closed".to_string(),
         };
 
-        results.push(ScanResult {
+        let result = ScanResult {
             ip,
             port: *port,
-            status,
-        });
+            status: status.clone(),
+        };
+
+        if config.is_none() {
+            // Regular mode: print to stdout
+            println!("Port {} {} on IP {}", port, status, ip);
+        }
+
+        results.push(result);
     }
 
-    results
+    if let Some(cfg) = config {
+        // Mapping mode: print results as JSON
+        let json = serde_json::to_string_pretty(&results).unwrap();
+        println!("{}", json);
+
+        // Optional: send to web app via POST
+        if let Err(err) = send_results(&cfg.mapper.endpoint, &results) {
+            eprintln!("Error sending results to mapper: {}", err);
+        }
+    }
+}
+
+fn send_results(endpoint: &str, results: &[ScanResult]) -> Result<(), Box<dyn std::error::Error>> {
+    let client = reqwest::blocking::Client::new();
+    let res = client.post(endpoint).json(results).send()?;
+
+    if !res.status().is_success() {
+        return Err(format!("Server responded with status: {}", res.status()).into());
+    }
+
+    Ok(())
 }

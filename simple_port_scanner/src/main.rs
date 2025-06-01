@@ -1,5 +1,9 @@
+mod config;
 mod scanner;
-use scanner::{scan, ScanResult};
+
+use config::load_config;
+use scanner::scan;
+
 use std::env;
 use std::fs;
 use std::net::IpAddr;
@@ -10,19 +14,16 @@ fn main() {
 
     if args.len() < 4 {
         eprintln!(
-            "Usage: {} (-i <IP> | -f <file>) (-p <port> | -r <start-end> | -a) [-m]",
+            "Usage: {} (-i <IP> | -f <file>) (-p <port> | -r <start-end> | -a) [--map]",
             args[0]
         );
         return;
     }
 
-    // Check if --map/-m is passed
-    let map_enabled = args.contains(&"-m".to_string()) || args.contains(&"--map".to_string());
+    let use_mapping = args.contains(&String::from("--map")) || args.contains(&String::from("-m"));
 
     let targets: Vec<IpAddr> = match args[1].as_str() {
-        "-i" | "--ip" => {
-            vec![IpAddr::from_str(&args[2]).expect("Invalid IP address")]
-        }
+        "-i" | "--ip" => vec![IpAddr::from_str(&args[2]).expect("Invalid IP address")],
         "-f" | "--file" => {
             let contents = fs::read_to_string(&args[2]).expect("Failed to read file");
             contents
@@ -69,33 +70,13 @@ fn main() {
         }
     };
 
-    let mut all_results: Vec<ScanResult> = Vec::new();
+    let config = if use_mapping {
+        Some(load_config().expect("Failed to load config file"))
+    } else {
+        None
+    };
 
     for ip in targets {
-        let results = scan(ip, &ports);
-        all_results.extend(results);
-    }
-
-    let json = serde_json::to_string_pretty(&all_results).unwrap();
-
-    if map_enabled {
-        match reqwest::blocking::Client::new()
-            .post("http://localhost:8000/ingest") // <-- Change this as needed
-            .json(&all_results)
-            .send()
-        {
-            Ok(response) => {
-                if response.status().is_success() {
-                    println!("Results successfully mapped to asset manager.");
-                } else {
-                    eprintln!("Mapping failed with status: {}", response.status());
-                }
-            }
-            Err(e) => {
-                eprintln!("Failed to send mapping request: {}", e);
-            }
-        }
-    } else {
-        println!("{}", json);
+        scan(ip, &ports, config.as_ref());
     }
 }
