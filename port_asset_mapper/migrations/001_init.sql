@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS scan_results (
+CREATE TABLE IF NOT EXISTS port_scan_results (
     id SERIAL PRIMARY KEY,
     ip TEXT NOT NULL,
     port INTEGER NOT NULL,
