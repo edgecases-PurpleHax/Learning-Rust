@@ -24,7 +24,7 @@ pub async fn ingest_results(
     for result in payload.into_inner() {
         if let Err(e) = client
             .execute(
-                "INSERT INTO port_scans (ip, port, status) VALUES ($1, $2, $3)",
+                "INSERT INTO port_scan_results (ip, port, status) VALUES ($1, $2, $3)",
                 &[&result.ip, &(result.port as i32), &result.status],
             )
             .await
