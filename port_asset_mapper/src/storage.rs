@@ -1,3 +1,4 @@
+use crate::models::ScanResult;
 use deadpool_postgres::{Config, ManagerConfig, Pool, RecyclingMethod};
 use tokio_postgres::NoTls;
 
@@ -14,4 +15,22 @@ pub async fn init_pool() -> Result<DbPool, Box<dyn std::error::Error>> {
     });
     let pool = cfg.create_pool(None, NoTls)?;
     Ok(pool)
+}
+
+pub async fn insert_scan_results(
+    pool: &DbPool,
+    results: &[ScanResult],
+) -> Result<(), Box<dyn std::error::Error>> {
+    let client = pool.get().await?;
+
+    for result in results {
+        client
+            .execute(
+                "INSERT INTO port_scan_results (ip, port, status) VALUES ($1, $2, $3)",
+                &[&result.ip, &(result.port as i32), &result.status],
+            )
+            .await?;
+    }
+
+    Ok(())
 }
