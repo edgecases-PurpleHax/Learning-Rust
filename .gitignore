@@ -1,0 +1,36 @@
+# === Rust / Cargo ===
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# === IDEs and Editors ===
+# VS Code
+.vscode/
+/*.code-workspace
+
+# JetBrains IDEs (CLion, IntelliJ)
+.idea/
+*.iml
+
+# Vim
+*.swp
+*.swo
+*~
+*.bak
+# Emacs
+*#
+
+# === OS-specific ===
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+.*.sw?
+
